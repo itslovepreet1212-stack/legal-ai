@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import LawyerCard from '../components/LawyerCard'
 
 function Lawyers({ analysisData }) {
@@ -8,6 +10,7 @@ function Lawyers({ analysisData }) {
   const [locationRequested, setLocationRequested] = useState(false)
   const [error, setError] = useState('')
   const mapRef = useRef(null)
+  const mapInstanceRef = useRef(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -49,10 +52,7 @@ function Lawyers({ analysisData }) {
 
           const data = await response.json()
           setLawyers(data)
-
-          if (mapRef.current && window.google && window.google.maps) {
-            initMap(latitude, longitude, data)
-          }
+          // map initialization will be handled in the effect below once lawyers data is loaded
         } catch (err) {
           setError('Failed to find nearby lawyers. Please try again.')
         } finally {
@@ -67,64 +67,83 @@ function Lawyers({ analysisData }) {
   }
 
   const initMap = (lat, lng, lawyersList) => {
-    const map = new window.google.maps.Map(mapRef.current, {
-      center: { lat, lng },
-      zoom: 12,
-    })
+    if (!mapRef.current) return
 
-    const infoWindow = new window.google.maps.InfoWindow()
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.off()
+      mapInstanceRef.current.remove()
+      mapInstanceRef.current = null
+    }
 
-    const userMarker = new window.google.maps.Marker({
-      position: { lat, lng },
-      map,
-      icon: {
-        path: window.google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#3b82f6',
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-      },
-      title: 'Your Location',
-    })
+    const map = L.map(mapRef.current).setView([lat, lng], 12)
+    mapInstanceRef.current = map
 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map)
+
+    const userMarker = L.circleMarker([lat, lng], {
+      radius: 8,
+      fillColor: '#3b82f6',
+      color: '#ffffff',
+      weight: 2,
+      fillOpacity: 1,
+    }).addTo(map)
+    userMarker.bindPopup('Your location').openPopup()
+
+    const markers = []
     lawyersList.forEach((lawyer) => {
-      const marker = new window.google.maps.Marker({
-        position: { lat: lawyer.location.lat, lng: lawyer.location.lng },
-        map,
-        title: lawyer.name,
-      })
+      if (!lawyer.location?.lat || !lawyer.location?.lng) return
 
-      marker.addListener('click', () => {
-        infoWindow.setContent(`
-          <div style="padding: 10px;">
-            <strong style="font-size: 14px;">${lawyer.name}</strong>
-            <p style="margin: 5px 0 0 0; color: #666;">${lawyer.address}</p>
-            <p style="margin: 5px 0 0 0; color: #666;">${lawyer.phone}</p>
-          </div>
-        `)
-        infoWindow.open(map, marker)
-      })
+      const marker = L.marker([lawyer.location.lat, lawyer.location.lng]).addTo(map)
+      marker.bindPopup(`
+        <div style="padding: 10px; max-width: 230px;">
+          <strong style="font-size: 14px;">${lawyer.name}</strong>
+          <p style="margin: 8px 0 0 0; color: #333; font-size: 13px;">${lawyer.address}</p>
+          <p style="margin: 8px 0 0 0; color: #333; font-size: 13px;">${lawyer.phone}</p>
+        </div>
+      `)
+      markers.push([lawyer.location.lat, lawyer.location.lng])
     })
+
+    const bounds = L.latLngBounds([[lat, lng], ...markers])
+    if (markers.length > 0) {
+      map.fitBounds(bounds, { padding: [40, 40] })
+    }
   }
 
   useEffect(() => {
-    if (lawyers.length > 0 && mapRef.current && !window.google) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_KEY || ''}`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        const storedData = localStorage.getItem('analysisData')
-        if (storedData) {
-          const { latitude, longitude } = { latitude: 37.7749, longitude: -122.4194 }
-          navigator.geolocation.getCurrentPosition((position) => {
-            initMap(position.coords.latitude, position.coords.longitude, lawyers)
-          })
+    if (lawyers.length === 0) return
+
+    const initMapWithFallback = (lawyersList) => {
+      if (!mapRef.current) return
+
+      const doInit = (lat, lng) => initMap(lat, lng, lawyersList)
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => doInit(position.coords.latitude, position.coords.longitude),
+          () => {
+            const first = lawyersList[0]
+            if (first?.location?.lat && first?.location?.lng) {
+              doInit(first.location.lat, first.location.lng)
+            } else {
+              doInit(37.7749, -122.4194)
+            }
+          }
+        )
+      } else {
+        const first = lawyersList[0]
+        if (first?.location?.lat && first?.location?.lng) {
+          doInit(first.location.lat, first.location.lng)
+        } else {
+          doInit(37.7749, -122.4194)
         }
       }
-      document.head.appendChild(script)
     }
+
+    initMapWithFallback(lawyers)
   }, [lawyers])
 
   if (!analysisData && !localStorage.getItem('analysisData')) {
