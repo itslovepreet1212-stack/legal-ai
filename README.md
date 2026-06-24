@@ -7,7 +7,7 @@ AI-powered legal document analysis with chatbot and lawyer finder.
 - Upload PDF or DOCX legal documents
 - AI-powered document analysis (type, summary, risks, obligations, red flags)
 - Real-time chatbot for document questions
-- Find nearby lawyers based on document type and location
+- Comprehensive legal document processing
 
 ## Tech Stack
 
@@ -31,7 +31,6 @@ pip install -r requirements.txt
 3. Create a `.env` file in the `backend/` directory with your API keys:
 ```
 GROQ_API_KEY=your-groq-key-here
-GOOGLE_PLACES_API_KEY=your-google-key-here
 ```
 
 4. Run the backend server:
@@ -52,12 +51,7 @@ cd legal-ai/frontend
 npm install
 ```
 
-3. (Optional) Create a `.env` file in the `frontend/` directory for Google Maps:
-```
-VITE_GOOGLE_MAPS_KEY=your-google-maps-key-here
-```
-
-4. Run the frontend development server:
+3. Run the frontend development server:
 ```bash
 npm run dev
 ```
@@ -70,12 +64,6 @@ The frontend will run on http://localhost:5173
 2. Create a new API key
 3. Add it to your backend `.env` as `GROQ_API_KEY`
 
-### Google Places API Key
-1. Go to https://console.cloud.google.com
-2. Enable the "Places API" for your project
-3. Create credentials (API Key)
-4. Add it to your backend `.env` as `GOOGLE_PLACES_API_KEY`
-
 ## Usage
 
 1. Start the backend server on port 8000
@@ -84,7 +72,6 @@ The frontend will run on http://localhost:5173
 4. Upload a PDF or DOCX legal document
 5. View the AI analysis of your document
 6. Chat with the AI assistant about your document
-7. Find nearby lawyers based on your document type
 
 ## Project Structure
 
@@ -96,8 +83,8 @@ legal-ai/
 │   ├── requirements.txt     # Python dependencies
 │   └── services/
 │       ├── document_parser.py  # PDF/DOCX text extraction
-│       ├── ai_service.py        # Groq AI integration
-│       └── places_service.py    # Google Places API
+│       ├── ai_service.py       # Groq AI integration
+│       └── image_service.py    # Image processing
 ├── frontend/
 │   ├── index.html
 │   ├── package.json
@@ -110,10 +97,11 @@ legal-ai/
 │       ├── pages/
 │       │   ├── Upload.jsx
 │       │   ├── Analysis.jsx
-│       │   └── Lawyers.jsx
+│       │   ├── Chat.jsx
+│       │   ├── Dashboard.jsx
+│       │   └── Profile.jsx
 │       └── components/
 │           ├── Chatbot.jsx
-│           ├── LawyerCard.jsx
 │           └── RiskBadge.jsx
 └── README.md
 ```
